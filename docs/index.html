@@ -121,9 +121,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
   <div class="section">
     <div class="section-title">Presets</div>
-    <button class="case-btn" onclick="loadPreset('optimalA')" style="width:100%;margin-bottom:4px">Case A Optimal</button>
-    <button class="case-btn" onclick="loadPreset('optimalB')" style="width:100%;margin-bottom:4px">Case B Optimal</button>
-    <button class="case-btn" onclick="loadPreset('optimalD5')" style="width:100%;margin-bottom:4px">Case D (w=5)</button>
+    <button class="case-btn" onclick="loadPreset('optimalA')" style="width:100%;margin-bottom:4px">Case A (δT=0.5)</button>
+    <button class="case-btn" onclick="loadPreset('optimalB')" style="width:100%;margin-bottom:4px">Case B (δT=0.7)</button>
+    <button class="case-btn" onclick="loadPreset('optimalC')" style="width:100%;margin-bottom:4px">Case C (δT=0.3)</button>
+    <button class="case-btn" onclick="loadPreset('optimalD5')" style="width:100%;margin-bottom:4px">Case D (δT=0.7, w=5)</button>
     <button class="case-btn" onclick="loadPreset('default')" style="width:100%;margin-bottom:4px">Reset Defaults</button>
   </div>
 </div>
@@ -328,10 +329,11 @@ function setCase(c) {
 
 function loadPreset(name) {
   const presets = {
-    optimalA: {dT:1.6, nH:1.06, nC:1.01, w:5},
-    optimalB: {dT:0.0, nH:1.07, nC:1.01, w:5},
+    optimalA: {dT:0.5, nH:1.055, nC:1.055, w:5},
+    optimalB: {dT:0.7, nH:1.075, nC:0.8585, w:5},
+    optimalC: {dT:0.3, nH:1.075, nC:1.0775, w:5},
     optimalD5: {dT:0.7, nH:1.06, nC:1.01, w:5},
-    default: {dT:1.6, nH:1.06, nC:1.01, w:5}
+    default: {dT:0.5, nH:1.055, nC:1.055, w:5}
   };
   const p = presets[name] || presets.default;
   document.getElementById('dT').value = p.dT;
@@ -340,6 +342,7 @@ function loadPreset(name) {
   document.getElementById('anchorW').value = p.w;
   if (name === 'optimalA') { currentCase = 'A'; }
   else if (name === 'optimalB') { currentCase = 'B'; }
+  else if (name === 'optimalC') { currentCase = 'C'; }
   else if (name === 'optimalD5') { currentCase = 'D'; }
   else { currentCase = 'A'; }
   document.querySelectorAll('.case-btn').forEach((b,i) => {
@@ -497,19 +500,19 @@ function updateCharts(r, p) {
     charts.sens.update();
   }
 
-  // Trade-off chart
+  // Trade-off chart — values from cc_analysis.py optimal results
   const tradeData = [
-    {label:'A: Heat only', dH:10.5, tri:1.5, r2:0.978, color:'#3b82f6'},
-    {label:'B: +Cool 20°C', dH:4.6, tri:0.2, r2:0.534, color:'#10b981'},
-    {label:'C: Full (cost)', dH:2.6, tri:0.7, r2:0.213, color:'#f59e0b'},
+    {label:'A: Heat only', dH:9.6, tri:0.5, r2:0.979, color:'#3b82f6'},
+    {label:'B: +Cool 20°C', dH:5.1, tri:0.1, r2:0.366, color:'#10b981'},
+    {label:'C: Full (cost)', dH:2.7, tri:0.4, r2:0.419, color:'#f59e0b'},
     {label:'D: Anchor w=5', dH:8.5, tri:0.2, r2:0.994, color:'#8b5cf6'}
   ];
   if (r) {
     tradeData.push({label:'Current', dH:r.dHerr, tri:r.triErr, r2:r.R2, color:'#ef4444'});
   }
   charts.trade.data.datasets = [{
-    label: 'ΔH error vs Triple pt error',
-    data: tradeData.map(d=>({x:d.dH, y:d.tri})),
+    label: 'Case comparison',
+    data: tradeData.map(d=>({x:d.dH, y:d.tri, label:d.label+' (R²='+d.r2.toFixed(3)+')'})),
     backgroundColor: tradeData.map(d=>d.color),
     pointRadius: tradeData.map((_,i)=>i===tradeData.length-1?10:7),
     pointStyle: tradeData.map((_,i)=>i===tradeData.length-1?'rectRot':'circle')
