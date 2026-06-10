@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C-C Equation Verification Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.header{background:linear-gradient(135deg,#1e293b,#334155);padding:20px 30px;border-bottom:2px solid #3b82f6;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.4rem;color:#f1f5f9}
+.header h1 span{color:#3b82f6}
+.badge{background:#3b82f6;color:white;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 70px)}
+.sidebar{background:#1e293b;padding:16px;overflow-y:auto;border-right:1px solid #334155}
+.section{margin-bottom:18px}
+.section-title{font-size:.7rem;text-transform:uppercase;letter-spacing:2px;color:#64748b;margin-bottom:8px;font-weight:700}
+.param-group{background:#0f172a;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #1e3a5f}
+.param-label{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;margin-bottom:4px;color:#94a3b8}
+.param-label .val{color:#3b82f6;font-weight:700;font-size:.85rem}
+input[type=range]{width:100%;height:6px;-webkit-appearance:none;background:#334155;border-radius:3px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#3b82f6;cursor:pointer;box-shadow:0 0 6px rgba(59,130,246,.5)}
+.main{padding:20px;overflow-y:auto}
+.card{background:#1e293b;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #334155}
+.card-title{font-size:.85rem;color:#64748b;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.case-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.case-btn{padding:8px 16px;border:2px solid #334155;border-radius:8px;background:#0f172a;color:#94a3b8;cursor:pointer;font-weight:600;font-size:.8rem;transition:all .2s}
+.case-btn:hover{border-color:#3b82f6;color:#e2e8f0}
+.case-btn.active{background:#3b82f6;color:white;border-color:#3b82f6}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-box{background:#0f172a;border-radius:10px;padding:12px;text-align:center;border:1px solid #1e3a5f}
+.stat-val{font-size:1.3rem;font-weight:800;color:#3b82f6}
+.stat-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.stat-val.good{color:#10b981}
+.stat-val.warn{color:#f59e0b}
+.stat-val.bad{color:#ef4444}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-container{position:relative;height:320px}
+.toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.8rem}
+.toggle-row input[type=checkbox]{accent-color:#3b82f6;width:16px;height:16px}
+.data-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:8px}
+.data-table th{background:#0f172a;color:#64748b;padding:6px 8px;text-align:left;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #334155}
+.data-table td{padding:5px 8px;border-bottom:1px solid #1e3a5f;color:#cbd5e1}
+.data-table tr:hover td{background:#1e3a5f}
+.data-table .neg{color:#ef4444;font-weight:700}
+.info-text{font-size:.75rem;color:#64748b;line-height:1.5;margin-top:6px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;margin-left:4px}
+.tag-a{background:#3b82f633;color:#3b82f6}
+.tag-b{background:#10b98133;color:#10b981}
+.tag-c{background:#f59e0b33;color:#f59e0b}
+.tag-d{background:#8b5cf633;color:#8b5cf6}
+@media(max-width:768px){.grid{grid-template-columns:1fr}.chart-row{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>C-C</span>lausius-<span>C</span>lapeyron Verification Dashboard</h1>
+  <span class="badge">Interactive</span>
+</div>
+<div class="grid">
+<div class="sidebar">
+  <div class="section">
+    <div class="section-title">Case Selection</div>
+    <div class="case-btns">
+      <button class="case-btn active" onclick="setCase('A')">A: Heat</button>
+      <button class="case-btn" onclick="setCase('B')">B: +Cool 20°C</button>
+      <button class="case-btn" onclick="setCase('C')">C: Full</button>
+      <button class="case-btn" onclick="setCase('D')">D: Anchor</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Correction Parameters</div>
+    <div class="param-group">
+      <div class="param-label">δT (thermal offset) <span class="val" id="dT-val">1.60 °C</span></div>
+      <input type="range" id="dT" min="0" max="5" step="0.05" value="1.6" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">n_air (heating) <span class="val" id="nH-val">1.06e-4 mol</span></div>
+      <input type="range" id="nH" min="0.5" max="2.0" step="0.01" value="1.06" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">n_air (cooling) <span class="val" id="nC-val">1.01e-4 mol</span></div>
+      <input type="range" id="nC" min="0.5" max="2.0" step="0.01" value="1.01" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">Anchor weight (w) <span class="val" id="w-val">5.0</span></div>
+      <input type="range" id="anchorW" min="0.5" max="10" step="0.5" value="5.0" oninput="update()">
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Fixed Parameters</div>
+    <div class="param-group">
+      <div class="param-label">V_exp (heating) <span class="val" id="VexpH-val">2.0 mL</span></div>
+      <input type="range" id="VexpH" min="1.0" max="4.0" step="0.1" value="2.0" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">V_exp (cooling) <span class="val" id="VexpC-val">2.2 mL</span></div>
+      <input type="range" id="VexpC" min="1.0" max="4.0" step="0.1" value="2.2" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">Meniscus <span class="val" id="mens-val">0.20 mL</span></div>
+      <input type="range" id="mens" min="0" max="0.5" step="0.01" value="0.20" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">d_inner <span class="val" id="dIn-val">1.01 cm</span></div>
+      <input type="range" id="dIn" min="0.8" max="1.3" step="0.01" value="1.01" oninput="update()">
+    </div>
+    <div class="param-group">
+      <div class="param-label">P_ATM <span class="val" id="Patm-val">1.000 atm</span></div>
+      <input type="range" id="Patm" min="0.96" max="1.04" step="0.001" value="1.000" oninput="update()">
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Display Options</div>
+    <div class="toggle-row"><input type="checkbox" id="showLiterature" checked onchange="update()"><label for="showLiterature">Literature C-C line</label></div>
+    <div class="toggle-row"><input type="checkbox" id="showRegression" checked onchange="update()"><label for="showRegression">Regression line</label></div>
+    <div class="toggle-row"><input type="checkbox" id="showExtrapolation" checked onchange="update()"><label for="showExtrapolation">Extrapolation to 0°C</label></div>
+    <div class="toggle-row"><input type="checkbox" id="showCoolData" onchange="update()"><label for="showCoolData">Cooling data points</label></div>
+    <div class="toggle-row"><input type="checkbox" id="showPwaterDetail" onchange="update()"><label for="showPwaterDetail">P_water detail table</label></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Presets</div>
+    <button class="case-btn" onclick="loadPreset('optimalA')" style="width:100%;margin-bottom:4px">Case A Optimal</button>
+    <button class="case-btn" onclick="loadPreset('optimalB')" style="width:100%;margin-bottom:4px">Case B Optimal</button>
+    <button class="case-btn" onclick="loadPreset('optimalD5')" style="width:100%;margin-bottom:4px">Case D (w=5)</button>
+    <button class="case-btn" onclick="loadPreset('default')" style="width:100%;margin-bottom:4px">Reset Defaults</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats">
+    <div class="stat-box"><div class="stat-val" id="stat-dH">44.98</div><div class="stat-label">ΔH_vap (kJ/mol)</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-dHerr">10.5%</div><div class="stat-label">ΔH error</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-Ptri">0.00612</div><div class="stat-label">P_triple (atm)</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-triErr">1.5%</div><div class="stat-label">Triple pt error</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat-box"><div class="stat-val" id="stat-R2">0.978</div><div class="stat-label">R²</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-slope">-5385</div><div class="stat-label">Slope (K)</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-npts">12</div><div class="stat-label">Data points</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-negPts">0</div><div class="stat-label">P&lt;0 violations</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Clausius-Clapeyron Plot: ln(P_water) vs 1/T</div>
+    <div class="chart-container"><canvas id="ccChart"></canvas></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="card">
+      <div class="card-title">Error Comparison</div>
+      <div class="chart-container"><canvas id="errChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">P_water vs Temperature (with error bars)</div>
+      <div class="chart-container"><canvas id="pwChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="card">
+      <div class="card-title">Sensitivity Landscape (δT vs n_air → cost)</div>
+      <div class="chart-container"><canvas id="sensChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Trade-off: ΔH error vs Triple Point error</div>
+      <div class="chart-container"><canvas id="tradeChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" id="detailCard" style="display:none">
+    <div class="card-title">P_water Detail</div>
+    <table class="data-table" id="detailTable">
+      <thead><tr><th>T_water(°C)</th><th>T_gas(K)</th><th>V_corr(mL)</th><th>P_gas(atm)</th><th>P_air(atm)</th><th>P_water(atm)</th><th>P_lit(atm)</th><th>P_w/P_lit</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<script>
+// ===== Constants =====
+const R_ATM = 0.08206, R_J = 8.314;
+const T_TRI = 273.16, P_TRI_LIT = 0.00603, DH_LIT = 40.7;
+const RHO = 998.0, G = 9.80665;
+const MENISCUS_DEFAULT = 0.2;
+
+// Raw experimental data
+const HEAT = [[2.8,21],[3.0,32],[3.1,37.5],[3.2,43],[3.3,47.5],[3.4,52],[3.5,54],[3.6,56],[3.7,58],[3.8,60],[3.9,61],[4.0,62]];
+const COOL = [[3.0,20],[2.9,14],[2.8,13]]; // deduplicated
+
+// Antoine equation for water
+function PwaterLit(Tc) {
+  return Math.exp(13.722 - 5120.6 / (Tc + 273.15));
+}
+
+// Literature C-C line
+const LIT_SLOPE = -DH_LIT * 1000 / R_J;
+const LIT_INT = Math.log(P_TRI_LIT) - LIT_SLOPE / T_TRI;
+
+// ===== State =====
+let currentCase = 'A';
+let charts = {};
+
+function getParams() {
+  const dT = parseFloat(document.getElementById('dT').value);
+  const nH = parseFloat(document.getElementById('nH').value) * 1e-4;
+  const nC = parseFloat(document.getElementById('nC').value) * 1e-4;
+  const w = parseFloat(document.getElementById('anchorW').value);
+  const VexpH = parseFloat(document.getElementById('VexpH').value);
+  const VexpC = parseFloat(document.getElementById('VexpC').value);
+  const mens = parseFloat(document.getElementById('mens').value);
+  const dIn = parseFloat(document.getElementById('dIn').value);
+  const Patm = parseFloat(document.getElementById('Patm').value);
+  const A = Math.PI * (dIn / 2) ** 2; // cm²
+  const PgasH = Patm - RHO * G * (VexpH / A * 1e-2) / 101325;
+  const PgasC = Patm - RHO * G * (VexpC / A * 1e-2) / 101325;
+  return {dT, nH, nC, w, VexpH, VexpC, mens, dIn, Patm, A, PgasH, PgasC};
+}
+
+function compute(p) {
+  let cc_x = [], cc_y = [], details = [];
+  let negCount = 0;
+
+  // Heat data
+  for (const [Vraw, Tw] of HEAT) {
+    const TgK = Tw + 273.15 - p.dT;
+    const Vcorr = (Vraw - p.mens) / 1000;
+    const Pair = p.nH * R_ATM * TgK / Vcorr;
+    const Pw = p.PgasH - Pair;
+    const Plit = PwaterLit(Tw - p.dT);
+    details.push({Tw, TgK: TgK.toFixed(2), Vcorr: (Vcorr*1000).toFixed(1), Pgas: p.PgasH.toFixed(5), Pair: Pair.toFixed(5), Pw: Pw.toFixed(5), Plit: Plit.toFixed(5), ratio: Pw > 0 ? (Pw/Plit).toFixed(3) : 'NEG', neg: Pw <= 0, type:'heat'});
+    if (Pw <= 0) { negCount++; continue; }
+    cc_x.push(1/TgK); cc_y.push(Math.log(Pw));
+  }
+
+  // Cool data
+  if (currentCase === 'B') {
+    const [Vraw, Tw] = COOL[0]; // only 20°C
+    const TgK = Tw + 273.15 - p.dT;
+    const Vcorr = (Vraw - p.mens) / 1000;
+    const Pair = p.nC * R_ATM * TgK / Vcorr;
+    const Pw = p.PgasC - Pair;
+    const Plit = PwaterLit(Tw - p.dT);
+    details.push({Tw, TgK: TgK.toFixed(2), Vcorr: (Vcorr*1000).toFixed(1), Pgas: p.PgasC.toFixed(5), Pair: Pair.toFixed(5), Pw: Pw.toFixed(5), Plit: Plit.toFixed(5), ratio: Pw > 0 ? (Pw/Plit).toFixed(3) : 'NEG', neg: Pw <= 0, type:'cool'});
+    if (Pw > 0) { cc_x.push(1/TgK); cc_y.push(Math.log(Pw)); } else { negCount++; }
+  } else if (currentCase === 'C') {
+    for (const [Vraw, Tw] of COOL) {
+      const TgK = Tw + 273.15 - p.dT;
+      const Vcorr = (Vraw - p.mens) / 1000;
+      const Pair = p.nC * R_ATM * TgK / Vcorr;
+      const Pw = p.PgasC - Pair;
+      const Plit = PwaterLit(Tw - p.dT);
+      details.push({Tw, TgK: TgK.toFixed(2), Vcorr: (Vcorr*1000).toFixed(1), Pgas: p.PgasC.toFixed(5), Pair: Pair.toFixed(5), Pw: Pw.toFixed(5), Plit: Plit.toFixed(5), ratio: Pw > 0 ? (Pw/Plit).toFixed(3) : 'NEG', neg: Pw <= 0, type:'cool'});
+      if (Pw > 0) { cc_x.push(1/TgK); cc_y.push(Math.log(Pw)); } else { negCount++; }
+    }
+  }
+
+  // Case D: anchor from cooling extrapolation
+  let anchorX = null, anchorY = null;
+  if (currentCase === 'D') {
+    // Cool-only regression for 0°C extrapolation
+    let cx = [], cy = [], coolOk = true;
+    for (const [Vraw, Tw] of COOL) {
+      const TgK = Tw + 273.15 - p.dT;
+      const Vcorr = (Vraw - p.mens) / 1000;
+      const Pair = p.nC * R_ATM * TgK / Vcorr;
+      const Pw = p.PgasC - Pair;
+      if (Pw <= 0) { coolOk = false; break; }
+      cx.push(1/TgK); cy.push(Math.log(Pw));
+    }
+    if (coolOk && cx.length >= 2) {
+      const n = cx.length;
+      const sx = cx.reduce((a,b)=>a+b,0), sy = cy.reduce((a,b)=>a+b,0);
+      const sxy = cx.reduce((s,v,i)=>s+v*cy[i],0), sx2 = cx.reduce((s,v)=>s+v*v,0);
+      const den = n*sx2 - sx*sx;
+      if (den !== 0) {
+        const slope = (n*sxy - sx*sy)/den;
+        const intc = (sy - slope*sx)/n;
+        anchorX = 1/T_TRI;
+        anchorY = slope * anchorX + intc;
+        cc_x.push(anchorX); cc_y.push(anchorY);
+      }
+    }
+  }
+
+  // Weighted least squares
+  const n = cc_x.length;
+  if (n < 2) return null;
+
+  let weights = cc_x.map((_,i) => {
+    if (currentCase === 'D' && anchorX !== null && Math.abs(cc_x[i] - anchorX) < 1e-10) return p.w;
+    return 1.0;
+  });
+
+  const sw = weights.reduce((a,b)=>a+b,0);
+  const swx = weights.reduce((s,w,i)=>s+w*cc_x[i],0);
+  const swy = weights.reduce((s,w,i)=>s+w*cc_y[i],0);
+  const swxy = weights.reduce((s,w,i)=>s+w*cc_x[i]*cc_y[i],0);
+  const swx2 = weights.reduce((s,w,i)=>s+w*cc_x[i]*cc_x[i],0);
+
+  const den = sw*swx2 - swx*swx;
+  if (Math.abs(den) < 1e-20) return null;
+  const slope = (sw*swxy - swx*swy)/den;
+  const intercept = (swy - slope*swx)/sw;
+
+  const yPred = cc_x.map(x => slope*x + intercept);
+  const ssRes = weights.reduce((s,w,i)=>s+w*(cc_y[i]-yPred[i])**2,0);
+  const yWmean = swy/sw;
+  const ssTot = weights.reduce((s,w,i)=>s+w*(cc_y[i]-yWmean)**2,0);
+  const R2 = ssTot > 0 ? 1 - ssRes/ssTot : 0;
+
+  const dH = -slope * R_J / 1000;
+  const Ptriple = Math.exp(slope / T_TRI + intercept);
+  const dHerr = Math.abs(dH - DH_LIT) / DH_LIT * 100;
+  const triErr = Math.abs(Ptriple - P_TRI_LIT) / P_TRI_LIT * 100;
+
+  return {slope, intercept, R2, dH, Ptriple, dHerr, triErr, npts: n, negCount, cc_x, cc_y, details, anchorX, anchorY};
+}
+
+function setCase(c) {
+  currentCase = c;
+  document.querySelectorAll('.case-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  update();
+}
+
+function loadPreset(name) {
+  const presets = {
+    optimalA: {dT:1.6, nH:1.06, nC:1.01, w:5},
+    optimalB: {dT:0.0, nH:1.07, nC:1.01, w:5},
+    optimalD5: {dT:0.7, nH:1.06, nC:1.01, w:5},
+    default: {dT:1.6, nH:1.06, nC:1.01, w:5}
+  };
+  const p = presets[name] || presets.default;
+  document.getElementById('dT').value = p.dT;
+  document.getElementById('nH').value = p.nH;
+  document.getElementById('nC').value = p.nC;
+  document.getElementById('anchorW').value = p.w;
+  if (name === 'optimalA') { currentCase = 'A'; }
+  else if (name === 'optimalB') { currentCase = 'B'; }
+  else if (name === 'optimalD5') { currentCase = 'D'; }
+  else { currentCase = 'A'; }
+  document.querySelectorAll('.case-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0 && currentCase==='A') || (i===1 && currentCase==='B') || (i===2 && currentCase==='C') || (i===3 && currentCase==='D'));
+  });
+  update();
+}
+
+function updateLabels(p) {
+  document.getElementById('dT-val').textContent = p.dT.toFixed(2) + ' °C';
+  document.getElementById('nH-val').textContent = (p.nH*1e4).toFixed(2) + 'e-4 mol';
+  document.getElementById('nC-val').textContent = (p.nC*1e4).toFixed(2) + 'e-4 mol';
+  document.getElementById('w-val').textContent = p.w.toFixed(1);
+  document.getElementById('VexpH-val').textContent = p.VexpH.toFixed(1) + ' mL';
+  document.getElementById('VexpC-val').textContent = p.VexpC.toFixed(1) + ' mL';
+  document.getElementById('mens-val').textContent = p.mens.toFixed(2) + ' mL';
+  document.getElementById('dIn-val').textContent = p.dIn.toFixed(2) + ' cm';
+  document.getElementById('Patm-val').textContent = p.Patm.toFixed(3) + ' atm';
+}
+
+function updateStats(r) {
+  if (!r) {
+    ['stat-dH','stat-dHerr','stat-Ptri','stat-triErr','stat-R2','stat-slope','stat-npts','stat-negPts'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+      document.getElementById(id).className = 'stat-val';
+    });
+    return;
+  }
+  const el = (id, txt, cls) => { const e = document.getElementById(id); e.textContent = txt; e.className = 'stat-val ' + cls; };
+  el('stat-dH', r.dH.toFixed(2), '');
+  el('stat-dHerr', r.dHerr.toFixed(1) + '%', r.dHerr <= 5 ? 'good' : r.dHerr <= 10 ? 'warn' : 'bad');
+  el('stat-Ptri', r.Ptriple.toFixed(5), '');
+  el('stat-triErr', r.triErr.toFixed(1) + '%', r.triErr <= 5 ? 'good' : r.triErr <= 10 ? 'warn' : 'bad');
+  el('stat-R2', r.R2.toFixed(4), r.R2 >= 0.95 ? 'good' : r.R2 >= 0.5 ? 'warn' : 'bad');
+  el('stat-slope', r.slope.toFixed(0), '');
+  el('stat-npts', r.npts, '');
+  el('stat-negPts', r.negCount, r.negCount === 0 ? 'good' : 'bad');
+}
+
+function updateDetailTable(r) {
+  const card = document.getElementById('detailCard');
+  const show = document.getElementById('showPwaterDetail').checked;
+  card.style.display = show ? '' : 'none';
+  if (!show || !r) return;
+  const tbody = document.querySelector('#detailTable tbody');
+  tbody.innerHTML = '';
+  for (const d of r.details) {
+    const tr = document.createElement('tr');
+    if (d.neg) tr.style.background = '#7f1d1d44';
+    tr.innerHTML = `<td>${d.Tw}</td><td>${d.TgK}</td><td>${d.Vcorr}</td><td>${d.Pgas}</td><td>${d.Pair}</td><td class="${d.neg?'neg':''}">${d.Pw}</td><td>${d.Plit}</td><td>${d.ratio}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function updateCharts(r, p) {
+  // CC Plot
+  const datasets = [];
+  if (document.getElementById('showLiterature').checked) {
+    const litX = [], litY = [];
+    for (let T = 0; T <= 100; T += 1) { const TgK = T+273.15; litX.push(1/TgK); litY.push(LIT_SLOPE/TgK + LIT_INT); }
+    datasets.push({label:'Literature (ΔH=40.7)', data:litX.map((x,i)=>({x,y:litY[i]})), borderColor:'#64748b', borderWidth:2, borderDash:[8,4], pointRadius:0, order:10});
+  }
+  if (r) {
+    // Data points
+    const heatPts = [], coolPts = [];
+    let idx = 0;
+    for (const d of r.details) {
+      if (d.type === 'heat' && !d.neg) heatPts.push({x: 1/parseFloat(d.TgK), y: Math.log(parseFloat(d.Pw))});
+      else if (d.type === 'cool' && !d.neg) coolPts.push({x: 1/parseFloat(d.TgK), y: Math.log(parseFloat(d.Pw))});
+    }
+    datasets.push({label:'Heating data', data:heatPts, backgroundColor:'#3b82f6', pointRadius:5, pointStyle:'circle', showLine:false, order:2});
+    if (document.getElementById('showCoolData').checked && (currentCase==='B'||currentCase==='C')) {
+      datasets.push({label:'Cooling data', data:coolPts, backgroundColor:'#10b981', pointRadius:5, pointStyle:'triangle', showLine:false, order:2});
+    }
+    if (r.anchorX !== null && currentCase === 'D') {
+      datasets.push({label:'Anchor (0°C extrapolation)', data:[{x:r.anchorX, y:r.anchorY}], backgroundColor:'#8b5cf6', pointRadius:10, pointStyle:'star', showLine:false, order:1});
+    }
+    // Regression line
+    if (document.getElementById('showRegression').checked) {
+      const regX = [], regY = [];
+      for (let T = -5; T <= 100; T += 0.5) { const TgK = T+273.15; regX.push(1/TgK); regY.push(r.slope/TgK + r.intercept); }
+      datasets.push({label:`Regression (R²=${r.R2.toFixed(3)})`, data:regX.map((x,i)=>({x,y:regY[i]})), borderColor:'#f59e0b', borderWidth:2, pointRadius:0, order:5});
+    }
+    // Extrapolation to triple point
+    if (document.getElementById('showExtrapolation').checked && r) {
+      datasets.push({label:'Triple point (literature)', data:[{x:1/T_TRI, y:Math.log(P_TRI_LIT)}], backgroundColor:'#ef4444', pointRadius:8, pointStyle:'rectRot', showLine:false, order:1});
+      datasets.push({label:'Triple point (estimated)', data:[{x:1/T_TRI, y:r.slope/T_TRI + r.intercept}], backgroundColor:'#f59e0b', pointRadius:8, pointStyle:'rectRot', showLine:false, order:1});
+    }
+  }
+  charts.cc.data.datasets = datasets;
+  charts.cc.options.scales.x.title.text = '1/T (K⁻¹)';
+  charts.cc.update();
+
+  // Error chart
+  if (r) {
+    const dHerr = r.dHerr, triErr = r.triErr;
+    charts.err.data.datasets = [{
+      label: 'Error (%)',
+      data: [{x:'ΔH_vap',y:dHerr},{x:'Triple pt',y:triErr}],
+      backgroundColor: [dHerr<=5?'#10b981':dHerr<=10?'#f59e0b':'#ef4444', triErr<=5?'#10b981':triErr<=10?'#f59e0b':'#ef4444'],
+      borderRadius: 6, barPercentage: 0.6
+    }];
+    charts.err.update();
+  }
+
+  // P_water vs T chart
+  if (r) {
+    const pwData = [], litData = [];
+    for (const d of r.details) {
+      if (!d.neg && d.type==='heat') {
+        pwData.push({x: d.Tw, y: parseFloat(d.Pw)});
+        litData.push({x: d.Tw, y: parseFloat(d.Plit)});
+      }
+    }
+    charts.pw.data.datasets = [
+      {label:'P_water (measured)', data:pwData, borderColor:'#3b82f6', backgroundColor:'#3b82f633', showLine:true, pointRadius:4, tension:0.3, fill:false},
+      {label:'P_water (literature)', data:litData, borderColor:'#64748b', borderDash:[5,5], pointRadius:0, showLine:true, tension:0.3, fill:false}
+    ];
+    charts.pw.update();
+  }
+
+  // Sensitivity heatmap (scan δT and n_air)
+  if (charts.sens) {
+    const dTs = [], nHs = [], costs = [];
+    for (let dT = 0.2; dT <= 4; dT += 0.3) {
+      for (let n = 0.6; n <= 1.5; n += 0.1) {
+        const nH = n * 1e-4;
+        const A = Math.PI * (p.dIn/2)**2;
+        const Pgas = p.Patm - RHO*G*(p.VexpH/A*1e-2)/101325;
+        let sx=0,sy=0,sxy=0,sx2=0,cnt=0,neg=0;
+        for (const [Vraw,Tw] of HEAT) {
+          const TgK = Tw+273.15-dT;
+          const Vcorr = (Vraw-p.mens)/1000;
+          const Pair = nH*R_ATM*TgK/Vcorr;
+          const Pw = Pgas - Pair;
+          if (Pw<=0) {neg++; continue;}
+          sx += 1/TgK; sy += Math.log(Pw); sxy += Math.log(Pw)/TgK; sx2 += 1/TgK/TgK; cnt++;
+        }
+        if (cnt < 3) continue;
+        const sl = (cnt*sxy-sx*sy)/(cnt*sx2-sx*sx);
+        const ic = (sy-sl*sx)/cnt;
+        const dH = -sl*R_J/1000;
+        const Pt = Math.exp(sl/T_TRI+ic);
+        const c = Math.abs(dH-DH_LIT)/DH_LIT + Math.abs(Pt-P_TRI_LIT)/P_TRI_LIT;
+        dTs.push(dT); nHs.push(n); costs.push(c);
+      }
+    }
+    // Convert to bubble chart
+    const sensData = dTs.map((dT,i) => ({x:dT, y:nHs[i], r:4, v:costs[i]}));
+    charts.sens.data.datasets = [{
+      label:'Cost landscape',
+      data: sensData.map(d=>({x:d.x,y:d.y,r:d.r})),
+      backgroundColor: sensData.map(d => d.v<0.1?'#10b981':d.v<0.2?'#f59e0b':d.v<0.5?'#f97316':'#ef4444'),
+    }];
+    charts.sens.update();
+  }
+
+  // Trade-off chart
+  const tradeData = [
+    {label:'A: Heat only', dH:10.5, tri:1.5, r2:0.978, color:'#3b82f6'},
+    {label:'B: +Cool 20°C', dH:4.6, tri:0.2, r2:0.534, color:'#10b981'},
+    {label:'C: Full (cost)', dH:2.6, tri:0.7, r2:0.213, color:'#f59e0b'},
+    {label:'D: Anchor w=5', dH:8.5, tri:0.2, r2:0.994, color:'#8b5cf6'}
+  ];
+  if (r) {
+    tradeData.push({label:'Current', dH:r.dHerr, tri:r.triErr, r2:r.R2, color:'#ef4444'});
+  }
+  charts.trade.data.datasets = [{
+    label: 'ΔH error vs Triple pt error',
+    data: tradeData.map(d=>({x:d.dH, y:d.tri})),
+    backgroundColor: tradeData.map(d=>d.color),
+    pointRadius: tradeData.map((_,i)=>i===tradeData.length-1?10:7),
+    pointStyle: tradeData.map((_,i)=>i===tradeData.length-1?'rectRot':'circle')
+  }];
+  charts.trade.update();
+}
+
+function update() {
+  const p = getParams();
+  updateLabels(p);
+  const r = compute(p);
+  updateStats(r);
+  updateDetailTable(r);
+  updateCharts(r, p);
+}
+
+function initCharts() {
+  const defaultOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {duration:200},
+    plugins: {
+      legend: {labels:{color:'#94a3b8',font:{size:11}}},
+      tooltip: {backgroundColor:'#1e293b',titleColor:'#f1f5f9',bodyColor:'#e2e8f0'}
+    },
+    scales: {
+      x: {grid:{color:'#334155'},ticks:{color:'#94a3b8',font:{size:10}},title:{display:true,color:'#94a3b8',font:{size:11}}},
+      y: {grid:{color:'#334155'},ticks:{color:'#94a3b8',font:{size:10}},title:{display:true,color:'#94a3b8',font:{size:11}}}
+    }
+  };
+
+  charts.cc = new Chart(document.getElementById('ccChart'), {
+    type:'scatter',
+    data:{datasets:[]},
+    options:{...defaultOpts, scales:{...defaultOpts.scales, x:{...defaultOpts.scales.x, title:{text:'1/T (K⁻¹)',display:true}}, y:{...defaultOpts.scales.y, title:{text:'ln(P_water / atm)',display:true}}}, plugins:{...defaultOpts.plugins}}
+  });
+
+  charts.err = new Chart(document.getElementById('errChart'), {
+    type:'bar',
+    data:{labels:['ΔH_vap','Triple pt'],datasets:[{data:[]}]},
+    options:{...defaultOpts, scales:{x:{...defaultOpts.scales.x},y:{...defaultOpts.scales.y,title:{text:'Error (%)',display:true}}}, plugins:{...defaultOpts.plugins}}
+  });
+
+  charts.pw = new Chart(document.getElementById('pwChart'), {
+    type:'scatter',
+    data:{datasets:[]},
+    options:{...defaultOpts, scales:{x:{...defaultOpts.scales.x,title:{text:'T (°C)',display:true}},y:{...defaultOpts.scales.y,title:{text:'P_water (atm)',display:true}}}, plugins:{...defaultOpts.plugins}}
+  });
+
+  charts.sens = new Chart(document.getElementById('sensChart'), {
+    type:'bubble',
+    data:{datasets:[{data:[]}]},
+    options:{...defaultOpts, scales:{x:{...defaultOpts.scales.x,title:{text:'δT (°C)',display:true}},y:{...defaultOpts.scales.y,title:{text:'n_air (×10⁻⁴ mol)',display:true}}}, plugins:{...defaultOpts.plugins}}
+  });
+
+  charts.trade = new Chart(document.getElementById('tradeChart'), {
+    type:'scatter',
+    data:{datasets:[{data:[]}]},
+    options:{...defaultOpts, scales:{x:{...defaultOpts.scales.x,title:{text:'ΔH error (%)',display:true}},y:{...defaultOpts.scales.y,title:{text:'Triple pt error (%)',display:true}}}, plugins:{...defaultOpts.plugins}}
+  });
+}
+
+initCharts();
+update();
+</script>
+</body>
+</html>
