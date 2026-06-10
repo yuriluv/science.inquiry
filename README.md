@@ -29,6 +29,10 @@
 - 삼중점 P ≈ 0.00603 atm (문헌값)
 - P_water > 0 (모든 포인트, 물리적 제약)
 
+## 인터랙티브 대시보드
+
+[**C-C Verification Dashboard**](https://yuriluv.github.io/science.inquiry/) — 파라미터 실시간 조절, Case 토글, 오차 비교, 민감도 지형, 트레이드오프 차트
+
 ## 프로젝트 구조
 
 ```
@@ -37,6 +41,7 @@
 ├── data/
 │   └── raw_data.md     # 원시 실험 데이터
 ├── docs/
+│   ├── index.html      # 인터랙티브 대시보드 (GitHub Pages)
 │   └── 시행착오.md      # v1~v3 과정과 오류 기록
 ├── cc_analysis.py      # 모듈화 분석 스크립트 (Case A/B/C)
 └── results/            # 결과 출력
